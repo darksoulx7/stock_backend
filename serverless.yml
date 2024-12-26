@@ -63,6 +63,14 @@ functions:
           path: service/{id}
           method: put
           cors: true
+  
+  getService:
+    handler: src/handlers/serviceHandler.getServiceById
+    events:
+      - http:
+          path: service/{id}
+          method: get
+          cors: true
 
   deleteService:
     handler: src/handlers/serviceHandler.deleteService

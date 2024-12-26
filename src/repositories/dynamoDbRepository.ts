@@ -1,6 +1,6 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { generateServiceId } from '../models/dynamoDbTypes';
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand, } from "@aws-sdk/lib-dynamodb";
+import { generateServiceId } from "../models/dynamoDbTypes";
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -35,17 +35,18 @@ export class DynamoDbRepository {
     const params = {
       TableName: process.env.TABLE_NAME as string,
       Key: { pk: service.pk, sk: service.sk },
-      UpdateExpression: 'set #name = :name, description = :description, risk = :risk, category = :category, subcategory = :subcategory, price = :price',
+      UpdateExpression:
+        "set #name = :name, description = :description, risk = :risk, category = :category, subcategory = :subcategory, price = :price",
       ExpressionAttributeNames: {
-        '#name': 'name',
+        "#name": "name",
       },
       ExpressionAttributeValues: {
-        ':name': service.name,
-        ':description': service.description,
-        ':risk': service.risk,
-        ':category': service.category,
-        ':subcategory': service.subcategory,
-        ':price': service.price,
+        ":name": service.name,
+        ":description": service.description,
+        ":risk": service.risk,
+        ":category": service.category,
+        ":subcategory": service.subcategory,
+        ":price": service.price,
       },
     };
 
@@ -60,18 +61,24 @@ export class DynamoDbRepository {
     await docClient.send(new DeleteCommand(params));
   }
 
-  static async getAllServices(limit: number = 10, lastEvaluatedKey: string | undefined = undefined): Promise<any[]> {
-    const params = {
-      TableName: process.env.TABLE_NAME as string,
-      KeyConditionExpression: 'pk = :pk',
-      ExpressionAttributeValues: {
-        ':pk': 'SERVICE',
-      },
-      Limit: limit,
-      ExclusiveStartKey: lastEvaluatedKey ? JSON.parse(lastEvaluatedKey) : undefined,
-    };
-
-    const result = await docClient.send(new QueryCommand(params));
-    return result.Items || [];
+  static async getServices(limit: number): Promise<any[]> {
+    let allItems: any[] = [];
+    let lastEvaluatedKey: any;
+  
+    do {
+      const result = await docClient.send(new QueryCommand({
+        TableName: process.env.TABLE_NAME as string,
+        KeyConditionExpression: "pk = :pk",
+        ExpressionAttributeValues: {
+          ":pk": "SERVICE",
+        },
+        Limit: limit, 
+        ExclusiveStartKey: lastEvaluatedKey,
+      }));
+      allItems = allItems.concat(result.Items || []);
+      lastEvaluatedKey = result.LastEvaluatedKey; 
+    } while (lastEvaluatedKey);
+  
+    return allItems;
   }
 }
