@@ -1,0 +1,101 @@
+service: stocks-backend
+
+frameworkVersion: '3'
+
+custom:
+  webpack:
+    webpackConfig: ./webpack.config.js
+    includeModules: true
+
+plugins:
+  - serverless-esbuild
+  - serverless-pseudo-parameters
+  - serverless-iam-roles-per-function
+  - serverless-dynamodb-local
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  environment:
+    TABLE_NAME: stocks_backend_app_table 
+    BCRYPT_SALT_ROUNDS: 10
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:PutItem"
+        - "dynamodb:GetItem"
+        - "dynamodb:Query"
+        - "dynamodb:DeleteItem"
+        - "dynamodb:UpdateItem"
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TABLE_NAME}
+
+functions:
+  subscribeEmail:
+    handler: src/handlers/subscriptionEmailHandler.subscribeEmail
+    events:
+      - http:
+          path: email
+          method: post
+          cors: true
+
+  adminLogin:
+    handler: src/handlers/adminHandler.adminLogin
+    events:
+      - http:
+          path: admin/login
+          method: post
+          cors: true
+
+  createService:
+    handler: src/handlers/serviceHandler.createService
+    events:
+      - http:
+          path: service
+          method: post
+          cors: true
+
+  updateService:
+    handler: src/handlers/serviceHandler.updateService
+    events:
+      - http:
+          path: service/{id}
+          method: put
+          cors: true
+
+  deleteService:
+    handler: src/handlers/serviceHandler.deleteService
+    events:
+      - http:
+          path: service/{id}
+          method: delete
+          cors: true
+
+  getAllServices:
+    handler: src/handlers/serviceHandler.getAllServices
+    events:
+      - http:
+          path: services
+          method: get
+          cors: true
+
+resources:
+  Resources:
+    ServiceTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+          - AttributeName: sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
