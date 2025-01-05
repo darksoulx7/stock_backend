@@ -37,34 +37,16 @@ export const validate = (schema: Joi.ObjectSchema, data: any) => {
 };
 
 
-export const validateSignUp = (data: { email: string, password: string }) => {
-  const schema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().min(8).required(),
-  });
 
-  return schema.validate(data);
-};
-export const validateUser = (user: any) => {
-  const schema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().min(6).required(),
-    firstName: Joi.string().min(2).max(50).required(),
-    lastName: Joi.string().min(2).max(50).required(),
-    address: Joi.string().min(5).max(100),
-    phoneNumber: Joi.string().min(10).max(15),
-    dateOfBirth: Joi.date(),
-    country: Joi.string(),
-    city: Joi.string(),
-    zipCode: Joi.string(),
-    profilePictureUrl: Joi.string().uri(),
-    // Add more fields here as needed (e.g., 30+ fields)
-    gender: Joi.string().valid('male', 'female', 'other'),
-    occupation: Joi.string(),
-    // Dynamic fields
-    customField1: Joi.string().optional(),
-    customField2: Joi.string().optional(),
-    // More custom fields up to the required number
-  });
-  return schema.validate(user);
-};
+
+export const validateSignupSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required(),
+  phoneNumber: Joi.string().required(),
+});
+
+export const validateOtpSchema = Joi.object({
+  email: Joi.string().email().required(),
+  emailOtp: Joi.string().required(),
+  whatsappOtp: Joi.string().required(),
+});

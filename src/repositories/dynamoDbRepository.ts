@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand, } from "@aws-sdk/lib-dynamodb";
+import { generateUpdateExpression } from "../utils/dynamo-helpers";
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -31,22 +32,14 @@ export class DynamoDbRepository {
   }
 
   static async updateService(service: any): Promise<void> {
+    const excludedKeys = ['pk', 'sk', 'id'];
+    const { updateExpression, attributeNames, attributeValues } = generateUpdateExpression(service, excludedKeys);
     const params = {
       TableName: process.env.TABLE_NAME as string,
       Key: { pk: service.pk, sk: service.sk },
-      UpdateExpression:
-        "set #name = :name, description = :description, risk = :risk, category = :category, subcategory = :subcategory, price = :price",
-      ExpressionAttributeNames: {
-        "#name": "name",
-      },
-      ExpressionAttributeValues: {
-        ":name": service.name,
-        ":description": service.description,
-        ":risk": service.risk,
-        ":category": service.category,
-        ":subcategory": service.subcategory,
-        ":price": service.price,
-      },
+      UpdateExpression: updateExpression,
+      ExpressionAttributeNames: attributeNames,
+      ExpressionAttributeValues: attributeValues,
     };
 
     await docClient.send(new UpdateCommand(params));
@@ -92,12 +85,12 @@ export class DynamoDbRepository {
     const params = {
       TableName: process.env.TABLE_NAME as string,
       Item: {
-        pk: `USER#${user.email}`,
-        sk: `USER#${user.email}`,
+        pk: `USER`,
+        sk: `${user.email}`,
         email: user.email,
         status: user.status,
         createdAt: new Date().toISOString(),
-        ...user.userData, // This will spread all custom user data fields into the item
+        ...user.userData,
       },
     };
 
@@ -126,35 +119,15 @@ export class DynamoDbRepository {
 
   // Update any other user details, including custom fields in DynamoDB
   static async updateUser(email: string, userData: any): Promise<any> {
+    const excludedKeys = ['pk', 'sk', 'id'];
+    const { updateExpression, attributeNames, attributeValues } = generateUpdateExpression(userData, excludedKeys);
     const params = {
       TableName: process.env.TABLE_NAME as string,
-      Key: {
-        pk: 'USER',
-        sk: email,
-      },
-      UpdateExpression:
-        "set #status = :status, #updatedAt = :updatedAt, " +
-        Object.keys(userData)
-          .map((key, idx) => `#${key} = :key`)
-          .join(", "),
-      ExpressionAttributeNames: {
-        "#status": "status",
-        "#updatedAt": "updatedAt",
-        ...Object.keys(userData).reduce((acc, key, idx) => {
-          acc[`#${key}`] = key;
-          return acc;
-        }, {} as any),
-      },
-      ExpressionAttributeValues: {
-        ":status": userData.status || "updated",
-        ":updatedAt": new Date().toISOString(),
-        ...Object.keys(userData).reduce((acc, key, idx) => {
-          acc[`:${key}`] = userData[key];
-          return acc;
-        }, {} as any),
-      },
+      Key: { pk: 'USER', sk: email },
+      UpdateExpression: updateExpression,
+      ExpressionAttributeNames: attributeNames,
+      ExpressionAttributeValues: attributeValues,
     };
-
     await docClient.send(new UpdateCommand(params));
     return { message: "User details updated successfully." };
   }

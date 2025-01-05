@@ -1,15 +1,14 @@
 service: stocks-backend
 
 frameworkVersion: '3'
+configValidationMode: error
 
 custom:
   webpack:
     webpackConfig: ./webpack.config.js
     includeModules: true
-
 plugins:
   - serverless-esbuild
-  - serverless-pseudo-parameters
   - serverless-iam-roles-per-function
   - serverless-dynamodb-local
   - serverless-offline
@@ -22,9 +21,35 @@ provider:
     TABLE_NAME: stocks_backend_app_table
     COGNITO_USER_POOL_ID: 
       Ref: UserPool
-    COGNITO_APP_CLIENT_ID:
+    COGNITO_CLIENT_ID:
       Ref: UserPoolClient
-    COGNITO_REGION: ${self:provider.region}
+    TWILIO_ACCOUNT_SID: ${.env:TWILIO_ACCOUNT_SID}
+    TWILIO_AUTH_TOKEN: ${.env:TWILIO_AUTH_TOKEN}
+    TWILIO_PHONE_NUMBER: ${.env:TWILIO_PHONE_NUMBER} 
+  iam:
+    role:
+      statements:
+        # DynamoDB Permissions
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TABLE_NAME}
+
+        # Cognito Permissions
+        - Effect: Allow
+          Action:
+            - cognito-idp:AdminCreateUser
+            - cognito-idp:AdminInitiateAuth
+            - cognito-idp:AdminSetUserPassword
+            - cognito-idp:AdminConfirmSignUp
+            - cognito-idp:AdminUpdateUserAttributes
+          Resource: 
+            Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}
 
 resources:
   Resources:
@@ -33,6 +58,8 @@ resources:
       Properties:
         UserPoolName: stocks_backend_user_pool
         AutoVerifiedAttributes:
+          - email
+        UsernameAttributes:
           - email
         Policies:
           PasswordPolicy:
@@ -50,21 +77,8 @@ resources:
           Ref: UserPool
         GenerateSecret: false
         ExplicitAuthFlows:
-          - ADMIN_NO_SRP_AUTH
-          - USER_PASSWORD_AUTH
-
-    UserPoolIdentityPool:
-      Type: AWS::Cognito::IdentityPool
-      Properties:
-        IdentityPoolName: stocks_backend_identity_pool
-        AllowUnauthenticatedIdentities: false
-        CognitoIdentityProviders:
-          - ClientId:
-              Ref: UserPoolClient
-            ProviderName:
-              Fn::GetAtt:
-                - UserPool
-                - ProviderName
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
 
     ServiceTable:
       Type: AWS::DynamoDB::Table
@@ -83,51 +97,34 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 5
           WriteCapacityUnits: 5
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
 
 functions:
   signUp:
-    handler: src/handlers/userHandler.signUp
+    handler: src/handlers/userHandler.userSignup
     events:
       - http:
-          path: user/sign-up
+          path: user/signup
           method: post
           cors: true
 
-  forgotPassword:
-    handler: src/handlers/userHandler.forgotPassword
+  login:
+    handler: src/handlers/userHandler.userLogin
     events:
       - http:
-          path: user/forgot-password
+          path: user/login
           method: post
           cors: true
-
-  resetPassword:
-    handler: src/handlers/userHandler.resetPassword
+  
+  verifyUser:
+    handler: src/handlers/userHandler.verifyUserOtp
     events:
       - http:
-          path: user/reset-password
+          path: user/verify-otp
           method: post
           cors: true
-
-  confirmSignUp:
-    handler: src/handlers/userHandler.confirmSignUp
-    events:
-      - http:
-          path: user/confirm-sign-up
-          method: post
-          cors: true
-
-  updateUser:
-    handler: src/handlers/userHandler.updateUser
-    events:
-      - http:
-          path: user/update
-          method: put
-          cors: true
-          authorizer:
-            type: COGNITO_USER_POOLS
-            authorizerId:
-              Ref: ApiGatewayAuthorizer
 
   subscribeEmail:
     handler: src/handlers/subscriptionEmailHandler.subscribeEmail
@@ -184,18 +181,3 @@ functions:
           path: services
           method: get
           cors: true
-
-resources:
-  Resources:
-    ApiGatewayAuthorizer:
-      Type: AWS::ApiGateway::Authorizer
-      Properties:
-        Name: CognitoAuthorizer
-        Type: COGNITO_USER_POOLS
-        RestApiId:
-          Ref: ApiGatewayRestApi
-        IdentitySource: method.request.header.Authorization
-        ProviderARNs:
-          - Fn::GetAtt:
-              - UserPool
-              - Arn
