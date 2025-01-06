@@ -24,7 +24,6 @@ export const subscriptionEmailSchema = Joi.object({
     email: Joi.string().email().required(),
 })
 
-
 // Helper function for validating data
 export const validate = (schema: Joi.ObjectSchema, data: any) => {
   const { error, value } = schema.validate(data, { abortEarly: false });
@@ -36,9 +35,6 @@ export const validate = (schema: Joi.ObjectSchema, data: any) => {
   return value;
 };
 
-
-
-
 export const validateSignupSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(8).required(),
@@ -49,4 +45,9 @@ export const validateOtpSchema = Joi.object({
   email: Joi.string().email().required(),
   emailOtp: Joi.string().required(),
   whatsappOtp: Joi.string().required(),
+});
+
+export const loginSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required(),
 });

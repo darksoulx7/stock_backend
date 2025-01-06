@@ -1,17 +1,23 @@
 service: stocks-backend
 
 frameworkVersion: '3'
-configValidationMode: error
+useDotenv: true
 
 custom:
   webpack:
     webpackConfig: ./webpack.config.js
     includeModules: true
+  scriptable:
+    hooks:
+      before:package:initialize: node src/scripts/loadEnv.js
+
 plugins:
   - serverless-esbuild
   - serverless-iam-roles-per-function
   - serverless-dynamodb-local
   - serverless-offline
+  - serverless-dotenv-plugin
+  - serverless-scriptable-plugin
 
 provider:
   name: aws
@@ -23,9 +29,9 @@ provider:
       Ref: UserPool
     COGNITO_CLIENT_ID:
       Ref: UserPoolClient
-    TWILIO_ACCOUNT_SID: ${.env:TWILIO_ACCOUNT_SID}
-    TWILIO_AUTH_TOKEN: ${.env:TWILIO_AUTH_TOKEN}
-    TWILIO_PHONE_NUMBER: ${.env:TWILIO_PHONE_NUMBER} 
+    TWILIO_ACCOUNT_SID: ${env:TWILIO_ACCOUNT_SID}
+    TWILIO_AUTH_TOKEN: ${env:TWILIO_AUTH_TOKEN}
+    TWILIO_PHONE_NUMBER: ${env:TWILIO_PHONE_NUMBER} 
   iam:
     role:
       statements:
@@ -50,6 +56,26 @@ provider:
             - cognito-idp:AdminUpdateUserAttributes
           Resource: 
             Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}
+
+        # CloudWatch Logs and Metrics Permissions
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - cloudwatch:PutMetricData
+          Resource: "*"
+
+        # S3 Full Bucket Access
+        - Effect: Allow
+          Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource: 
+            - arn:aws:s3:::*
+            - arn:aws:s3:::*/*
 
 resources:
   Resources:
@@ -103,7 +129,7 @@ resources:
 
 functions:
   signUp:
-    handler: src/handlers/userHandler.userSignup
+    handler: src/handlers/userHandler.signup
     events:
       - http:
           path: user/signup
@@ -111,7 +137,7 @@ functions:
           cors: true
 
   login:
-    handler: src/handlers/userHandler.userLogin
+    handler: src/handlers/userHandler.login
     events:
       - http:
           path: user/login
@@ -119,7 +145,7 @@ functions:
           cors: true
   
   verifyUser:
-    handler: src/handlers/userHandler.verifyUserOtp
+    handler: src/handlers/userHandler.verifyOtp
     events:
       - http:
           path: user/verify-otp
