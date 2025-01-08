@@ -2,7 +2,7 @@ import { DynamoDBClient, PutItemCommand, GetItemCommand, DeleteItemCommand } fro
 import twilio from "twilio";
 const dynamoDbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
-export const sendWhatsAppOtp = async (phoneNumber: string): Promise<void> => {
+export const sendWhatsAppOtp = async (phoneNumber: number): Promise<void> => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
   // Store OTP in DynamoDB with a TTL (Time to Live)
@@ -12,7 +12,8 @@ export const sendWhatsAppOtp = async (phoneNumber: string): Promise<void> => {
     new PutItemCommand({
       TableName: process.env.TABLE_NAME as string,
       Item: {
-        pk: { S: `OTP#${phoneNumber}` },
+        pk: { S: `OTP` },
+        sk : { S: `${phoneNumber}`},
         otp: { S: otp },
         ttl: { N: ttl.toString() }, // DynamoDB TTL requires Unix timestamp
       },
@@ -26,9 +27,10 @@ export const sendWhatsAppOtp = async (phoneNumber: string): Promise<void> => {
   );
 
   try {
+    // from: `${process.env.TWILIO_PHONE_NUMBER}`,
     await twilioClient.messages.create({
-      from: `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`,
-      to: `whatsapp:${phoneNumber}`,
+      to: `+91${phoneNumber}`,
+      messagingServiceSid: 'MGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
       body: `Your verification code is ${otp}. It is valid for 5 minutes.`,
     });
     console.log(`WhatsApp OTP sent to ${phoneNumber}`);
@@ -43,7 +45,8 @@ export const validateOtp = async (phoneNumber: string, otp: string): Promise<boo
     new GetItemCommand({
       TableName: process.env.TABLE_NAME as string,
       Key: {
-        pk: { S: `OTP#${phoneNumber}` },
+        pk: { S: `OTP` },
+        sk: { S: `${phoneNumber}`}
       },
     })
   );
@@ -56,7 +59,8 @@ export const validateOtp = async (phoneNumber: string, otp: string): Promise<boo
       new DeleteItemCommand({
         TableName: process.env.TABLE_NAME as string,
         Key: {
-          pk: { S: `OTP#${phoneNumber}` },
+          pk: { S: `OTP` },
+          sk: { S: `${phoneNumber}`}
         },
       })
     );

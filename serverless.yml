@@ -54,6 +54,7 @@ provider:
             - cognito-idp:AdminSetUserPassword
             - cognito-idp:AdminConfirmSignUp
             - cognito-idp:AdminUpdateUserAttributes
+            - cognito-idp:AdminGetUser
           Resource: 
             Fn::Sub: arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}
 
@@ -105,6 +106,7 @@ resources:
         ExplicitAuthFlows:
           - ALLOW_USER_PASSWORD_AUTH
           - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_CUSTOM_AUTH
 
     ServiceTable:
       Type: AWS::DynamoDB::Table
