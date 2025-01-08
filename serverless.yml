@@ -78,6 +78,14 @@ provider:
             - arn:aws:s3:::*
             - arn:aws:s3:::*/*
 
+        # SES: Send Email ACCESS
+        - Effect: "Allow"
+          Action: 
+            - ses:SendEmail
+            - ses:SendRawEmail
+          Resource:
+            - "arn:aws:ses:${self:provider.region}:${AWS::AccountId}:identity/*"
+
 resources:
   Resources:
     UserPool:

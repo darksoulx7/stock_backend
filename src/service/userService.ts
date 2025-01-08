@@ -3,12 +3,13 @@ import {
   CognitoIdentityProviderClient,
   AdminCreateUserCommand,
   AdminConfirmSignUpCommand,
-  AdminGetUserCommand,
-  AdminInitiateAuthCommand,
-  InitiateAuthCommand
+  AdminSetUserPasswordCommand,
+  InitiateAuthCommand,
+  AdminGetUserCommand
 } from "@aws-sdk/client-cognito-identity-provider";
 import { UserRepository } from "../repositories/userRepository";
-import { sendWhatsAppOtp, validateOtp } from "../utils/otpUtils";
+import { sendWhatsAppOtp, validateOtp, storeOtpInDynamoDB } from "../utils/otpUtils";
+import { prepareUserData } from "../utils/helpers";
 
 export class UserService {
   private userRepository: UserRepository;
@@ -26,13 +27,18 @@ export class UserService {
   ): Promise<void> {
     // Step 1: Check if the user exists in Cognito
     try {
-      // await this.cognitoClient.send(
-      //   new AdminGetUserCommand({
-      //     UserPoolId: process.env.COGNITO_USER_POOL_ID!,
-      //     Username: email,
-      //   })
-      // );
-      // throw new Error("User with this email already exists in Cognito.");
+    const cognitUser = await this.cognitoClient.send(
+        new AdminGetUserCommand({
+          UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+          Username: email,
+        })
+      );
+
+      console.log('cognitouseeeeeer', cognitUser);
+
+      if (cognitUser){
+        throw new Error("User with this email already exists in Cognito.");
+      }
     } catch (error: any) {
       // If error code is 'UserNotFoundException', proceed with sign-up
       console.error('Error while checking user email in cognito', error);
@@ -44,78 +50,66 @@ export class UserService {
       throw new Error("User with this email already exists in dynamo");
     }
 
-    // Step 3: Hash the password before saving it
-    const encryptedPassword = await bcrypt.hash(password, 10);
-
-    // Step 4: Create user in Cognito
+    // Step 3: Create user in Cognito
     try {
       await this.cognitoClient.send(
         new AdminCreateUserCommand({
           UserPoolId: process.env.COGNITO_USER_POOL_ID!,
           Username: email,
-          TemporaryPassword: "Sukuna#3597", // Consider handling a temporary password mechanism if needed
           UserAttributes: [
             { Name: "email", Value: email },
-            { Name: "email_verified", Value: "false" },
+            { Name: "email_verified", Value: "true" }, // Mark email as verified
           ],
           MessageAction: "SUPPRESS", // Suppress Cognito's default email
         })
       );
 
-      try {
-        await sendWhatsAppOtp(parseInt(phoneNumber));
-      } catch (error: any) {
-        throw new Error("Failed to send WhatsApp OTP: " + error.message);
-      }
-      // Step 5: Optionally initiate authentication (not necessary for the user creation process, could be handled in separate flow)
-      // This is an attempt to authenticate the user (not mandatory here)
-      // await this.cognitoClient.send(
-      //   new AdminInitiateAuthCommand({
-      //     UserPoolId: process.env.COGNITO_USER_POOL_ID!,
-      //     AuthFlow: "USER_PASSWORD_AUTH",
-      //     ClientId: process.env.COGNITO_CLIENT_ID!,
-      //     AuthParameters: {
-      //       USERNAME: email,
-      //       PASSWORD: password,
-      //     },
-      //   })
-      // );
+      // Step 4: Set the permanent password
+      await this.cognitoClient.send(
+        new AdminSetUserPasswordCommand({
+          UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+          Username: email,
+          Password: password,
+          Permanent: true, // Mark the password as permanent
+        })
+      );
+
+      console.log("User created and password set successfully");
     } catch (error: any) {
       throw new Error("Failed to create user in Cognito: " + error.message);
     }
 
-    // Step 6: Save the user details in DynamoDB
-    const user = {
-      pk: "USER",
-      sk: email,
-      id: email,
-      email,
-      phoneNumber,
-      address: "",
-      city: "",
-      postal: "",
-      country: "",
-      password: encryptedPassword,
-      profilePhoto: "",
-      paymentInfo: [],
-      verified: false,
-    };
+    // Step 5: Hash the password before saving it
+    const encryptedPassword = await bcrypt.hash(password, 10);
+    const user = prepareUserData(email, parseInt(phoneNumber), encryptedPassword);
 
     await this.userRepository.createUser(user);
 
+    // send email otp
+    const emailOtp = this.userRepository.generateOtp();
+    const whatsAppOtp = this.userRepository.generateOtp();
+    try {
+      await this.userRepository.sendEmailOtp(email, emailOtp); // Implement this utility to send OTP via email (using SES or another service)
+    } catch (error: any) {
+      throw new Error("Failed to send Email OTP: " + error.message);
+    }
+
     // Step 7: Send WhatsApp OTP
     try {
-      await sendWhatsAppOtp(parseInt(phoneNumber));
+      await sendWhatsAppOtp(parseInt(phoneNumber), whatsAppOtp);
     } catch (error: any) {
       throw new Error("Failed to send WhatsApp OTP: " + error.message);
     }
+
+    // step 8: store otps in dynamodb
+    try {
+      await storeOtpInDynamoDB(email, emailOtp, whatsAppOtp);
+    } catch (error: any) {
+      throw new Error("Error while storing otp in dynamodb" + error.message);
+    }
   }
 
-  async verifyUser(
-    email: string,
-    emailOtp: string,
-    whatsappOtp: string
-  ): Promise<void> {
+  async verifyUser(email: string, emailOtp: string, whatsappOtp: string): Promise<void> {
     try {
       // Step 1: Verify email OTP with Cognito
       try {
@@ -130,7 +124,7 @@ export class UserService {
       }
 
       // Step 2: Verify WhatsApp OTP
-      if (!validateOtp(email, whatsappOtp)) {
+      if (!validateOtp(email, whatsappOtp,emailOtp)) {
         throw new Error("Invalid WhatsApp OTP");
       }
 
