@@ -22,7 +22,7 @@ plugins:
 provider:
   name: aws
   runtime: nodejs18.x
-  region: us-east-1
+  region: ap-south-1
   environment:
     TABLE_NAME: stocks_backend_app_table
     COGNITO_USER_POOL_ID: 
@@ -31,7 +31,10 @@ provider:
       Ref: UserPoolClient
     TWILIO_ACCOUNT_SID: ${env:TWILIO_ACCOUNT_SID}
     TWILIO_AUTH_TOKEN: ${env:TWILIO_AUTH_TOKEN}
-    TWILIO_PHONE_NUMBER: ${env:TWILIO_PHONE_NUMBER} 
+    TWILIO_PHONE_NUMBER: ${env:TWILIO_PHONE_NUMBER}
+    SENDER_EMAIL: ${env:SENDER_EMAIL}
+    SENDER_EMAIL_PASSWORD: ${env:SENDER_EMAIL_PASSWORD}
+
   iam:
     role:
       statements:
@@ -84,7 +87,8 @@ provider:
             - ses:SendEmail
             - ses:SendRawEmail
           Resource:
-            - "arn:aws:ses:${self:provider.region}:${AWS::AccountId}:identity/*"
+            # - "arn:aws:ses:${self:provider.region}:${AWS::AccountId}:identity/*"
+            - !Sub arn:aws:ses:${self:provider.region}:${AWS::AccountId}:identity/*
 
 resources:
   Resources:

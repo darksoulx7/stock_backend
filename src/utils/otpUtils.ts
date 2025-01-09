@@ -24,6 +24,8 @@ export const sendWhatsAppOtp = async (phoneNumber: number, otp: string): Promise
 };
 
 export const validateOtp = async (email: string, emailOtp: string, phoneOtp: string): Promise<boolean> => {
+  console.log('email otpppps', emailOtp)
+  console.log('phone otpss', phoneOtp)
   const response = await dynamoDbClient.send(
     new GetItemCommand({
       TableName: process.env.TABLE_NAME as string,
@@ -35,7 +37,10 @@ export const validateOtp = async (email: string, emailOtp: string, phoneOtp: str
   );
 
   const storedWhatsUpOtp = response.Item?.phoneOtp?.S;
-  const storedEmailOtp = response.Item?.emailOtps?.S;
+  const storedEmailOtp = response.Item?.emailOtp?.S;
+  
+  console.log('storedWhatsUpOtp phoneOtp', storedWhatsUpOtp, phoneOtp);
+  console.log('storedEmailOtp emailOtp', storedEmailOtp, emailOtp);
 
   // If OTP matches, delete it to prevent reuse
   if (storedWhatsUpOtp === phoneOtp && storedEmailOtp == emailOtp) {

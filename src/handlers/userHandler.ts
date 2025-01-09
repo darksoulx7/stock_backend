@@ -38,11 +38,12 @@ export const verifyOtp: APIGatewayProxyHandler = async (
 ) => {
   try {
     const body = JSON.parse(event.body || "{}");
+    console.log('bodyyy', body);
     const { error } = validateOtpSchema.validate(body, { abortEarly: false });
     if (error) {
       return errorResponse(error.details[0].message);
     }
-    await userService.verifyUser(body.email, body.emailOtp, body.whatsappOtp);
+    await userService.verifyUser(body.email, body.emailOtp, body.phoneOtp);
     return {
       statusCode: 200,
       body: JSON.stringify({ message: "User verified successfully" }),

@@ -44,7 +44,7 @@ export const validateSignupSchema = Joi.object({
 export const validateOtpSchema = Joi.object({
   email: Joi.string().email().required(),
   emailOtp: Joi.string().required(),
-  whatsappOtp: Joi.string().required(),
+  phoneOtp: Joi.string().required(),
 });
 
 export const loginSchema = Joi.object({
