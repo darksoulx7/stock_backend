@@ -11,6 +11,10 @@ custom:
     hooks:
       before:package:initialize: node src/scripts/loadEnv.js
 
+package:
+  include:
+    - src/utils/emails/templates/otp-verification-template.ejs
+
 plugins:
   - serverless-esbuild
   - serverless-iam-roles-per-function
@@ -144,6 +148,7 @@ resources:
 functions:
   signUp:
     handler: src/handlers/userHandler.signup
+    timeout: 29
     events:
       - http:
           path: user/signup
@@ -152,6 +157,7 @@ functions:
 
   login:
     handler: src/handlers/userHandler.login
+    timeout: 29
     events:
       - http:
           path: user/login
@@ -160,6 +166,7 @@ functions:
   
   verifyUser:
     handler: src/handlers/userHandler.verifyOtp
+    timeout: 29
     events:
       - http:
           path: user/verify-otp

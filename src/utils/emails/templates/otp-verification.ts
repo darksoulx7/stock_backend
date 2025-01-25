@@ -1,17 +1,26 @@
+import path from 'path';
 import fs from 'fs';
 import ejs from 'ejs';
-import path from "path";
 
 class OtpVerificationTemplate {
   public otpVerificationTemplate(templateParams: any): string {
-    const {  email, otp, date } = templateParams;
-    const templatePath = path.join(__dirname,  '../../../../src/utils/emails/templates/otp-verification-template.ejs');
+    const { email, otp, date } = templateParams;
 
-    console.log('directory', __dirname, templatePath);
-    return ejs.render(fs.readFileSync(templatePath, 'utf8'), {  email, otp, date,
+    const templatePath = path.join(process.cwd(), 'src/utils/emails/templates/otp-verification-template.ejs');
+    console.log('Template Path:', templatePath);
+
+    try {
+      const templateContent = fs.readFileSync(templatePath, 'utf8');
+      return ejs.render(templateContent, {
+        email,
+        otp,
+        date,
         image_url: 'https://w7.pngwing.com/pngs/120/102/png-transparent-padlock-logo-computer-icons-padlock-technic-logo-password-lock.png',
-      },
-    );
+      });
+    } catch (error: any) {
+      console.error('Error reading template:', error.message);
+      throw new Error('Failed to generate OTP email template');
+    }
   }
 }
 
